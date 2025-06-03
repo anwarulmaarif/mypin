@@ -1,86 +1,83 @@
-// === FILE 1 === extension.js
-// Entry point utama
-
-const { Gio, GLib, St, Clutter } = imports.gi;
+// Tambahan untuk extension.js agar mendukung validasi file, pembatasan pin, dan pengaturan
+const { St, Gio, GLib, Shell } = imports.gi;
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
-const Util = imports.misc.util;
-const Me = imports.misc.extensionUtils.getCurrentExtension();
+const ExtensionUtils = imports.misc.extensionUtils;
+const Me = ExtensionUtils.getCurrentExtension();
 
-const { loadPinnedItems, savePinnedItems, addPinnedItem, removePinnedItem } = Me.imports.utils;
+let settings;
+let myPinButton;
 
-let myPinIndicator;
+function _loadPinnedFiles() {
+    const pinned = settings.get_strv('pinned-files');
+    const validPinned = pinned.filter(path => GLib.file_test(path, GLib.FileTest.EXISTS));
+    if (validPinned.length !== pinned.length) {
+        settings.set_strv('pinned-files', validPinned);
+    }
+    return validPinned;
+}
 
-class MyPinIndicator extends PanelMenu.Button {
+function _addFileToPin(path) {
+    let pinned = _loadPinnedFiles();
+    const max = settings.get_int('max-pinned');
+    if (pinned.includes(path)) return;
+    if (pinned.length >= max) return; // Prevent adding over the limit
+
+    pinned.push(path);
+    settings.set_strv('pinned-files', pinned);
+    _refreshUI();
+}
+
+function _refreshUI() {
+    myPinButton.menu.removeAll();
+    const pinned = _loadPinnedFiles();
+    for (let path of pinned) {
+        let file = Gio.File.new_for_path(path);
+        let info = file.query_info('standard::*', Gio.FileQueryInfoFlags.NONE, null);
+        let icon = new St.Icon({ gicon: info.get_icon(), style_class: 'popup-menu-icon' });
+        let item = new PopupMenu.PopupBaseMenuItem();
+        item.add_child(icon);
+        item.add_child(new St.Label({ text: file.get_basename(), x_expand: true }));
+
+        let unpinButton = new St.Button({ label: 'Unpin', style_class: 'button' });
+        unpinButton.connect('clicked', () => {
+            let updated = pinned.filter(p => p !== path);
+            settings.set_strv('pinned-files', updated);
+            _refreshUI();
+        });
+        item.add_child(unpinButton);
+
+        item.connect('button-press-event', (actor, event) => {
+            if (event.get_button() === 1) Shell.AppSystem.get_default().launch_default_for_uri(`file://${path}`, null);
+            if (event.get_button() === 3) Shell.AppSystem.get_default().launch_default_for_uri(`file://${GLib.path_get_dirname(path)}`, null);
+        });
+
+        myPinButton.menu.addMenuItem(item);
+    }
+}
+
+class MyPinButton extends PanelMenu.Button {
     constructor() {
         super(0.0, 'MyPin');
-
-        this._icon = new St.Icon({
-            icon_name: 'emblem-important-symbolic', // ikon pin
-            style_class: 'system-status-icon'
-        });
-
-        this.add_child(this._icon);
-        this._buildMenu();
+        this.icon = new St.Icon({ icon_name: 'emblem-favorite-symbolic', style_class: 'system-status-icon' });
+        this.add_child(this.icon);
     }
+}
 
-    _buildMenu() {
-        this.menu.removeAll();
-        this._items = loadPinnedItems();
-
-        this._items.forEach(item => {
-            let fileIcon = new St.Icon({
-                gicon: Gio.content_type_get_icon(Gio.content_type_guess(item.path, null)[0]),
-                icon_size: 16
-            });
-
-            let label = new St.Label({ text: GLib.path_get_basename(item.path), x_expand: true });
-
-            let openBtn = new PopupMenu.PopupBaseMenuItem({ reactive: true });
-            openBtn.actor.add_child(fileIcon);
-            openBtn.actor.add_child(label);
-
-            let unpinBtn = new St.Button({
-                style_class: 'button',
-                label: '×',
-                can_focus: true
-            });
-            openBtn.actor.add_child(unpinBtn);
-
-            openBtn.connect('activate', () => {
-                Util.spawn(['xdg-open', item.path]);
-            });
-
-            openBtn.actor.connect('button-press-event', (actor, event) => {
-                if (event.get_button() === 3) {
-                    Util.spawn(['xdg-open', GLib.path_get_dirname(item.path)]);
-                    return Clutter.EVENT_STOP;
-                }
-                return Clutter.EVENT_PROPAGATE;
-            });
-
-            unpinBtn.connect('clicked', () => {
-                removePinnedItem(item.path);
-                this._buildMenu();
-            });
-
-            this.menu.addMenuItem(openBtn);
-        });
-    }
-
-    refresh() {
-        this._buildMenu();
-    }
-
+function init() {
+    settings = ExtensionUtils.getSettings();
 }
 
 function enable() {
-    myPinIndicator = new MyPinIndicator();
-    Main.panel.addToStatusArea('mypin', myPinIndicator, 1, 'right');
+    myPinButton = new MyPinButton();
+    Main.panel.addToStatusArea('mypin', myPinButton);
+    _refreshUI();
 }
 
 function disable() {
-    myPinIndicator.destroy();
-    myPinIndicator = null;
+    if (myPinButton) {
+        myPinButton.destroy();
+        myPinButton = null;
+    }
 }

@@ -1,11 +1,13 @@
 // === FILE 3 === schemas/org.gnome.shell.extensions.mypin.gschema.xml
-<?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="org.gnome.shell.extensions.mypin" path="/org/gnome/shell/extensions/mypin/">
-    <key name="items" type="as">
+    <key name="pinned-files" type="as">
       <default>[]</default>
-      <summary>List of pinned file paths</summary>
-      <description>Stores paths of pinned items</description>
+      <summary>Daftar file yang dipin</summary>
+    </key>
+    <key name="max-pinned" type="i">
+      <default>20</default>
+      <summary>Batas maksimal file yang dapat dipin</summary>
     </key>
   </schema>
 </schemalist>
