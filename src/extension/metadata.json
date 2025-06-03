@@ -1,0 +1,9 @@
+// === FILE 2 === metadata.json
+{
+  "uuid": "mypin@anwa.net",
+  "name": "MyPin",
+  "description": "Pin file or folder to top panel",
+  "version": 1,
+  "shell-version": ["46"],
+  "settings-schema": "org.gnome.shell.extensions.mypin"
+}

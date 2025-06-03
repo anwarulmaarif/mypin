@@ -1,0 +1,11 @@
+// === FILE 3 === schemas/org.gnome.shell.extensions.mypin.gschema.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.mypin" path="/org/gnome/shell/extensions/mypin/">
+    <key name="items" type="as">
+      <default>[]</default>
+      <summary>List of pinned file paths</summary>
+      <description>Stores paths of pinned items</description>
+    </key>
+  </schema>
+</schemalist>
